@@ -5,9 +5,30 @@
 
 No build step. No bundler. No npm install. Just the platform.
 
-## Why NullDeps?
+## Why Not npm?
 
-Modern frontend tooling is overwhelming. Every project starts with hundreds of megabytes of dependencies before you write a single line of code.
+Supply chain attacks on the npm ecosystem are no longer rare edge cases.
+They are a **systematic, growing threat** to every project with a `node_modules` folder.
+
+| Year | Package | Impact | Vector |
+|------|---------|--------|--------|
+| 2021 | **ua-parser-js** | 8M weekly downloads | Crypto-miner injected via hijacked account |
+| 2021 | **node-ipc** | Millions of dependents | Protestware — deleted files on Russian IPs |
+| 2022 | **colors + faker** | Widespread breakage | Intentionally sabotaged by own author |
+| 2023 | **xz-utils** | Near-miss in Linux kernel | 2-year social engineering campaign |
+| 2024 | **polyfill.io** | 100k+ websites | CDN domain sold, malware served to end users |
+| 2026 | **axios** | 300M weekly downloads | Account takeover — RAT deployed cross-platform via `postinstall` hook, spread to PyPI & NuGet |
+
+Every one of these packages was **trusted, maintained, and widely used**.
+
+The attack surface is not your code.  
+**It is your dependency tree.**
+
+> The only safe dependency is no dependency.
+
+NullDeps has no `package.json`. No lockfile. No `node_modules`.  
+There is nothing to hijack.
+
 
 NullDeps proves you don't need any of it.
 
