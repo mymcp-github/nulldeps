@@ -39,7 +39,8 @@ NullDeps proves you don't need any of it.
 
 ## Live Demo
 
-**Live Demo:** [nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)
+[nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)
+[http://localhost:3000/demo/](http://localhost:3000/demo/)
 No setup. No install. Just open and explore.
 
 ## Getting Started
