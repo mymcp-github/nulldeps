@@ -37,10 +37,6 @@ NullDeps proves you don't need any of it.
 - Framework patterns** — without the framework tax
 
 
-## Live Demo
-
-[nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)
-[http://localhost:3000/demo/](http://localhost:3000/demo/)
 No setup. No install. Just open and explore.
 
 ## Getting Started
@@ -55,6 +51,10 @@ npx serve . -p 3000
 Then open [http://localhost:3000/demo/](http://localhost:3000/demo/) in your browser.
 
 > Demo data is stored in `localStorage` — no backend required.
+
+## Live Demo
+
+[nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)
 
 ## Usage
 
