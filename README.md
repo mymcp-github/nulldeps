@@ -36,20 +36,23 @@ NullDeps proves you don't need any of it.
 - **Tiny by design** — you ship exactly what you write
 - **Framework patterns** — without the framework tax
 
+
 ## Live Demo
 
-👉 **[nulldeps.github.io/nulldeps](https://nulldeps.github.io/nulldeps)**
+👉 **[nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)**
 
 No setup. No install. Just open and explore.
 
 ## Getting Started
 
 ```bash
+git clone https://github.com/mymcp-github/nulldeps
+cd nulldeps
 npx serve . -p 3000
-# → Demo running at http://localhost:3000
+# → Demo running at http://localhost:3000/demo/
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
+Then open [http://localhost:3000/demo/](http://localhost:3000/demo/) in your browser.
 
 > Demo data is stored in `localStorage` — no backend required.
 
@@ -150,5 +153,3 @@ PRs welcome. Keep it zero-dependency. Keep it simple.
 
 MIT
 ```
-
-Einzige Änderung: `python3 server.py` → `npx serve . -p 3000`.
