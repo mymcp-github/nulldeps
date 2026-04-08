@@ -21,30 +21,28 @@
   </ui-layout>
 
   <script type="module">
-    import { Router, http } from '/src/nulldeps.js';
-    import '/demo/pages/home-page.js';
-    import '/demo/pages/counter-page.js';
-    import '/demo/pages/tasks-page.js';
-    import '/demo/pages/task-detail-page.js';
-    import '/demo/pages/components-page.js';
-    import '/demo/components/ui-button.js';
-    import '/demo/components/ui-input.js';
-    import '/demo/components/ui-select.js';
-    import '/demo/components/ui-checkbox.js';
-    import '/demo/components/ui-layout.js'; // must be last so inner components are ready
+    import { Router } from '../src/nulldeps.js';
+    import './pages/home-page.js';
+    import './pages/counter-page.js';
+    import './pages/tasks-page.js';
+    import './pages/task-detail-page.js';
+    import './pages/components-page.js';
+    import './components/ui-button.js';
+    import './components/ui-input.js';
+    import './components/ui-select.js';
+    import './components/ui-checkbox.js';
+    import './components/ui-layout.js';
 
-    http.baseUrl = 'http://localhost:3066';
-
-    const router = new Router('#app')
+    // Hash-based routing — works on any static server
+    const router = new Router('#app', { hash: true })
       .add('/', 'home-page')
       .add('/components', 'components-page')
       .add('/counter', 'counter-page')
       .add('/tasks', 'tasks-page')
-      .add('/tasks/[id]', 'task-detail-page')
+      .add('/tasks/:id', 'task-detail-page')
       .add('/user/:id', 'user-page')
       .start();
 
-    // Bridge: window 'navigate' events → router.navigate()
     window.addEventListener('navigate', (e) => {
       router.navigate(e.detail.path);
     });

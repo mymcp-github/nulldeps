@@ -29,7 +29,6 @@ The attack surface is not your code.
 NullDeps has no `package.json`. No lockfile. No `node_modules`.  
 There is nothing to hijack.
 
-
 NullDeps proves you don't need any of it.
 
 - **Zero dependencies** — no node_modules, no lockfile hell
@@ -37,35 +36,29 @@ NullDeps proves you don't need any of it.
 - **Tiny by design** — you ship exactly what you write
 - **Framework patterns** — without the framework tax
 
+## Live Demo
 
-> **Note:** `node_modules` only exist in `data-server/` — purely to serve demo data.
-> The framework itself has zero dependencies.
+👉 **[nulldeps.github.io/nulldeps](https://nulldeps.github.io/nulldeps)**
+
+No setup. No install. Just open and explore.
 
 ## Getting Started
 
-You need two terminals:
-
-**Terminal 1 — Framework & Demo**
 ```bash
-python3 server.py
+npx serve . -p 3000
 # → Demo running at http://localhost:3000
 ```
 
-**Terminal 2 — Data Server**
-```bash
-cd data-server
-node --watch server.js
-# → API running at http://localhost:3066
-```
-
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> Demo data is stored in `localStorage` — no backend required.
 
 ## Usage
 
 No package manager needed. Just import:
 
 ```js
-import { Component, Router, Store, EventBus, http } from './src/nulldeps.js';
+import { Component, Router, Store, EventBus } from './src/nulldeps.js';
 ```
 
 ## Core Modules
@@ -75,7 +68,6 @@ import { Component, Router, Store, EventBus, http } from './src/nulldeps.js';
 | `Component` | `core/component.js` | Base class for Web Components with state & lifecycle |
 | `Store` | `core/store.js` | Reactive global state |
 | `Router` | `core/router.js` | Client-side routing |
-| `http` | `core/http.js` | Fetch wrapper with baseUrl support |
 | `EventBus` | `core/events.js` | Cross-component communication |
 
 ## API
@@ -119,17 +111,6 @@ Router.add('/tasks/:id', ({ id }) => renderTask(id));
 Router.start();
 ```
 
-### http
-
-```js
-import { http } from './src/nulldeps.js';
-
-http.baseUrl = 'http://localhost:3066';
-
-const tasks = await http.get('/api/tasks');
-await http.post('/api/tasks', { name: 'New Task', points: 5 });
-```
-
 ### EventBus
 
 ```js
@@ -146,7 +127,7 @@ The best dependency is no dependency.
 The best abstraction is the platform itself.
 ```
 
-NullDeps gives you **patterns without payloads**.  
+NullDeps gives you **patterns without payloads**.
 
 ## Browser Support
 
@@ -169,3 +150,5 @@ PRs welcome. Keep it zero-dependency. Keep it simple.
 
 MIT
 ```
+
+Einzige Änderung: `python3 server.py` → `npx serve . -p 3000`.

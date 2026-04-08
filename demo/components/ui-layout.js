@@ -25,28 +25,32 @@ class UiLayout extends Component {
     const link = e.target.closest('[data-href]');
     if (!link) return;
 
-    const href = link.dataset.href;
-    window.history.pushState({}, '', href);
-    this.setState({ activeRoute: href });
+    const href = link.dataset.href; // e.g. '#/counter'
+
+    // Strip '#' for router and internal state
+    const path = href.startsWith('#') ? href.slice(1) : href;
+
+    window.location.hash = href;
+    this.setState({ activeRoute: path });
 
     // Dispatch so the router can react
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.dispatchEvent(new CustomEvent('navigate', { detail: { path } }));
   }
 
   template() {
     const { activeRoute } = this.state;
 
     const navItems = [
-      { href: '/',        icon: '⊞', label: 'Home'      },
-      { href: '/counter', icon: '◎', label: 'Counter'   },
-      { href: '/tasks',   icon: '✓', label: 'Tasks'     },
-      { href: '/components',   icon: '▤', label: 'Components'     },
+      { href: '#/',           icon: '⊞', label: 'Home'       },
+      { href: '#/counter',    icon: '◎', label: 'Counter'    },
+      { href: '#/tasks',      icon: '✓', label: 'Tasks'      },
+      { href: '#/components', icon: '▤', label: 'Components' },
     ];
 
     const navLinks = navItems.map(({ href, icon, label }) => `
       <li>
         <div
-          class="nav-link ${activeRoute === href ? 'is-active' : ''}"
+          class="nav-link ${'#' + activeRoute === href ? 'is-active' : ''}"
           data-href="${href}"
           data-action="click:navigate"
           role="link"
