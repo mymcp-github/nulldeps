@@ -147,7 +147,6 @@ The best abstraction is the platform itself.
 ```
 
 NullDeps gives you **patterns without payloads**.  
-State management, routing, components — all under 5kb.
 
 ## Browser Support
 
