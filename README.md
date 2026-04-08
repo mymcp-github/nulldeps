@@ -12,12 +12,12 @@ They are a **systematic, growing threat** to every project with a `node_modules`
 
 | Year | Package | Impact | Vector |
 |------|---------|--------|--------|
-| 2021 | **ua-parser-js** | 8M weekly downloads | Crypto-miner injected via hijacked account |
-| 2021 | **node-ipc** | Millions of dependents | Protestware — deleted files on Russian IPs |
-| 2022 | **colors + faker** | Widespread breakage | Intentionally sabotaged by own author |
-| 2023 | **xz-utils** | Near-miss in Linux kernel | 2-year social engineering campaign |
-| 2024 | **polyfill.io** | 100k+ websites | CDN domain sold, malware served to end users |
-| 2026 | **axios** | 300M weekly downloads | Account takeover — RAT deployed cross-platform via `postinstall` hook, spread to PyPI & NuGet |
+| 2021 | **ua-parser-js** | 8M weekly downloads | Crypto-miner injected via hijacked account[1][7] |
+| 2021 | **node-ipc** | Millions of dependents | Protestware — deleted files on Russian IPs[1] |
+| 2022 | **colors + faker** | Widespread breakage | Intentionally sabotaged by own author[1] |
+| 2023 | **xz-utils** | Near-miss in Linux kernel | 2-year social engineering campaign[1] |
+| 2024 | **polyfill.io** | 100k+ websites | CDN domain sold, malware served to end users[1] |
+| 2026 | **axios** | **100M+ weekly downloads** | Account takeover — RAT deployed cross-platform via `postinstall` hook |
 
 Every one of these packages was **trusted, maintained, and widely used**.
 
