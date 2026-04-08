@@ -31,15 +31,15 @@ There is nothing to hijack.
 
 NullDeps proves you don't need any of it.
 
-- **Zero dependencies** — no node_modules, no lockfile hell
-- **Pure Web Standards** — Custom Elements, Shadow DOM, native Events
-- **Tiny by design** — you ship exactly what you write
-- **Framework patterns** — without the framework tax
+- Zero dependencies** — no node_modules, no lockfile hell
+- Pure Web Standards** — Custom Elements, Shadow DOM, native Events
+- Tiny by design** — you ship exactly what you write
+- Framework patterns** — without the framework tax
 
 
 ## Live Demo
 
-👉 **[nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)**
+👉 [nulldeps.mymcp.de/demo](https://nulldeps.mymcp.de/demo/)
 
 No setup. No install. Just open and explore.
 
