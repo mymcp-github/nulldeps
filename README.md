@@ -37,47 +37,6 @@ NullDeps proves you don't need any of it.
 - **Tiny by design** — you ship exactly what you write
 - **Framework patterns** — without the framework tax
 
-## Repository Structure
-
-```
-/
-├── src/                        # NullDeps framework source
-│   ├── nulldeps.js             # Main entry point
-│   └── core/
-│       ├── component.js        # Base Web Component class
-│       ├── events.js           # EventBus
-│       ├── http.js             # Fetch wrapper
-│       ├── router.js           # Client-side router
-│       └── store.js            # Reactive state
-│
-├── demo/                       # Demo application (no dependencies)
-│   ├── index.html
-│   ├── components/
-│   │   ├── ui-button.js
-│   │   ├── ui-checkbox.js
-│   │   ├── ui-input.js
-│   │   ├── ui-layout.js
-│   │   └── ui-select.js
-│   ├── pages/
-│   │   ├── components-page.js
-│   │   ├── counter-page.js
-│   │   ├── home-page.js
-│   │   ├── task-detail-page.js
-│   │   └── tasks-page.js
-│   └── services/
-│       ├── task.service.js
-│       └── tasks.service.js
-│
-├── data-server/                # Demo data server
-│   ├── server.js               # JSON API for demo data
-│   └── package.json
-│
-├── docs/
-│   └── getting-started.md
-│
-├── server.py                   # Static file server
-└── README.md
-```
 
 > **Note:** `node_modules` only exist in `data-server/` — purely to serve demo data.
 > The framework itself has zero dependencies.
