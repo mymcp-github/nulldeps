@@ -1,5 +1,3 @@
-Verstanden. Dann fliegt der Scaffold-Abschnitt raus:
-
 ```markdown
 # NullDeps
 
@@ -9,7 +7,9 @@ No build step. No bundler. No npm install. Just the platform.
 
 ## Why NullDeps?
 
-Modern frontend is bloated. NullDeps proves you don't need it.
+Modern frontend tooling is overwhelming. Every project starts with hundreds of megabytes of dependencies before you write a single line of code.
+
+NullDeps proves you don't need any of it.
 
 - **Zero dependencies** — no node_modules, no lockfile hell
 - **Pure Web Standards** — Custom Elements, Shadow DOM, native Events
@@ -41,14 +41,13 @@ Modern frontend is bloated. NullDeps proves you don't need it.
 │   │   ├── components-page.js
 │   │   ├── counter-page.js
 │   │   ├── home-page.js
-│   │   ├── home-page-de.js
 │   │   ├── task-detail-page.js
 │   │   └── tasks-page.js
 │   └── services/
 │       ├── task.service.js
 │       └── tasks.service.js
 │
-├── data-server/                # Demo data server (Express)
+├── data-server/                # Demo data server
 │   ├── server.js               # JSON API for demo data
 │   └── package.json
 │
@@ -59,33 +58,31 @@ Modern frontend is bloated. NullDeps proves you don't need it.
 └── README.md
 ```
 
-> **Note:** `node_modules` only exist in `data-server/` — purely for the demo API.
+> **Note:** `node_modules` only exist in `data-server/` — purely to serve demo data.
 > The framework itself has zero dependencies.
 
 ## Getting Started
 
-### 1. Demo starten
+You need two terminals:
 
-Du brauchst zwei Terminals:
-
-**Terminal 1 — Framework & Demo (Python, Root)**
+**Terminal 1 — Framework & Demo**
 ```bash
 python3 server.py
-# → Demo läuft auf http://localhost:3000
+# → Demo running at http://localhost:3000
 ```
 
-**Terminal 2 — Data Server (Node, /data-server)**
+**Terminal 2 — Data Server**
 ```bash
 cd data-server
 node --watch server.js
-# → API läuft auf http://localhost:3066
+# → API running at http://localhost:3066
 ```
 
-Dann öffne [http://localhost:3000](http://localhost:3000) im Browser.
+Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 2. NullDeps in deinem Projekt verwenden
+## Usage
 
-Kein Paketmanager nötig. Einfach importieren:
+No package manager needed. Just import:
 
 ```js
 import { Component, Router, Store, EventBus, http } from './src/nulldeps.js';
@@ -113,7 +110,6 @@ class MyElement extends Component {
     this.setState({ count: 0 });
   }
 
-  // Auto re-renders on setState()
   render() {
     return `<p>${this.state.count}</p>`;
   }
@@ -129,10 +125,7 @@ import { Store } from './src/nulldeps.js';
 
 const store = new Store({ user: null, theme: 'dark' });
 
-// Subscribe to changes
 store.subscribe((state) => console.log(state));
-
-// Update state
 store.set({ user: { name: 'Max' } });
 ```
 
@@ -151,7 +144,6 @@ Router.start();
 ```js
 import { http } from './src/nulldeps.js';
 
-// Optional: set a base URL
 http.baseUrl = 'http://localhost:3066';
 
 const tasks = await http.get('/api/tasks');
@@ -174,7 +166,7 @@ The best dependency is no dependency.
 The best abstraction is the platform itself.
 ```
 
-NullDeps gives you **patterns without payloads**.
+NullDeps gives you **patterns without payloads**.  
 State management, routing, components — all under 5kb.
 
 ## Browser Support
@@ -196,9 +188,5 @@ PRs welcome. Keep it zero-dependency. Keep it simple.
 
 ## License
 
-MIT © yourname
+MIT
 ```
-
----
-
-Noch offen: GitHub Username für die License Zeile — oder soll ich sie ganz generisch lassen?
