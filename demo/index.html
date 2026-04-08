@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NullDeps Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+
+  <ui-layout>
+    <div id="app"></div>
+  </ui-layout>
+
+  <script type="module">
+    import { Router, http } from '/src/nulldeps.js';
+    import '/demo/pages/home-page.js';
+    import '/demo/pages/counter-page.js';
+    import '/demo/pages/tasks-page.js';
+    import '/demo/pages/task-detail-page.js';
+    import '/demo/pages/components-page.js';
+    import '/demo/components/ui-button.js';
+    import '/demo/components/ui-input.js';
+    import '/demo/components/ui-select.js';
+    import '/demo/components/ui-checkbox.js';
+    import '/demo/components/ui-layout.js'; // must be last so inner components are ready
+
+    http.baseUrl = 'http://localhost:3066';
+
+    const router = new Router('#app')
+      .add('/', 'home-page')
+      .add('/components', 'components-page')
+      .add('/counter', 'counter-page')
+      .add('/tasks', 'tasks-page')
+      .add('/tasks/[id]', 'task-detail-page')
+      .add('/user/:id', 'user-page')
+      .start();
+
+    // Bridge: window 'navigate' events → router.navigate()
+    window.addEventListener('navigate', (e) => {
+      router.navigate(e.detail.path);
+    });
+  </script>
+
+</body>
+</html>
