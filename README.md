@@ -1,4 +1,3 @@
-```markdown
 # NullDeps
 
 > A zero-dependency Web Component framework built on pure web standards.
@@ -152,4 +151,3 @@ PRs welcome. Keep it zero-dependency. Keep it simple.
 ## License
 
 MIT
-```
