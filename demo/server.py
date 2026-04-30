@@ -6,7 +6,8 @@ import threading
 from pathlib import Path
 
 # Server is started from repo root, demo/ is the SPA entry point
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
+
 DEMO_INDEX = ROOT / 'demo' / 'index.html'
 
 class SPAHandler(http.server.SimpleHTTPRequestHandler):

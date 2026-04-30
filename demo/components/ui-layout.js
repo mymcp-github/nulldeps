@@ -1,88 +1,138 @@
-// ui-layout.js - App shell wrapper with sidebar navigation and slot-based content
+/**
+ * ui-layout.js
+ * App shell wrapper with sidebar navigation and slot-based content.
+ * Uses hash-based routing (#/path) - no server roundtrip needed.
+ */
 import { Component } from '/src/nulldeps.js';
+import { escHtml, escAttr, cls } from '/src/utility.js';
+import { cssVars, color, shadow } from '/src/theme.js';
+
+// Allowed routes - whitelist against open redirect / route injection
+const NAV_ITEMS = [
+  { href: '#/',           icon: '⊞', label: 'Home'       },
+  { href: '#/counter',    icon: '◎', label: 'Counter'    },
+  { href: '#/tasks',      icon: '✓', label: 'Tasks'      },
+  { href: '#/components', icon: '▤', label: 'Components' },
+];
+
+// Derived Set for O(1) whitelist lookups
+const ALLOWED_ROUTES = new Set(NAV_ITEMS.map(n => n.href));
+
+// Extract path segment from hash - e.g. '#/tasks' → '/tasks'
+function _hashToPath(hash) {
+  return hash.startsWith('#') ? hash.slice(1) : hash;
+}
+
+// Derive active route from current location hash
+function _currentRoute() {
+  return window.location.hash || '#/';
+}
 
 class UiLayout extends Component {
 
+  // ---- Lifecycle ----
+
   onMount() {
     this.initState({
-      // Derive active route from current path
-      activeRoute: window.location.pathname,
+      activeRoute: _currentRoute(),
     });
 
-    // Listen for client-side navigation changes
-    this._onPopState = () => {
-      this.setState({ activeRoute: window.location.pathname });
+    // Track browser back/forward navigation
+    this._onHashChange = () => {
+      this.setState({ activeRoute: _currentRoute() });
     };
-    window.addEventListener('popstate', this._onPopState);
+
+    window.addEventListener('hashchange', this._onHashChange);
   }
 
   onDestroy() {
-    window.removeEventListener('popstate', this._onPopState);
+    window.removeEventListener('hashchange', this._onHashChange);
   }
 
-  // Handle nav link clicks without full page reload
+  // ---- Actions ----
+
   navigate(e) {
     const link = e.target.closest('[data-href]');
     if (!link) return;
 
-    const href = link.dataset.href; // e.g. '#/counter'
+    const href = link.dataset.href;
 
-    // Strip '#' for router and internal state
-    const path = href.startsWith('#') ? href.slice(1) : href;
+    // Hard whitelist - reject anything not in NAV_ITEMS
+    if (!ALLOWED_ROUTES.has(href)) {
+      console.warn(`[UiLayout] Blocked navigation to unknown route: "${href}"`);
+      return;
+    }
 
     window.location.hash = href;
-    this.setState({ activeRoute: path });
 
-    // Dispatch so the router can react
-    window.dispatchEvent(new CustomEvent('navigate', { detail: { path } }));
+    // hashchange listener above handles setState -
+    // explicit call here for instant feedback (no async gap)
+    this.setState({ activeRoute: href });
+
+    this.emit('ui-layout:navigate', { path: _hashToPath(href) });
   }
+
+  // Keyboard: Enter/Space on nav-link
+  handleNavKeydown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      this.navigate(e);
+    }
+  }
+
+  // ---- Template ----
 
   template() {
     const { activeRoute } = this.state;
 
-    const navItems = [
-      { href: '#/',           icon: '⊞', label: 'Home'       },
-      { href: '#/counter',    icon: '◎', label: 'Counter'    },
-      { href: '#/tasks',      icon: '✓', label: 'Tasks'      },
-      { href: '#/components', icon: '▤', label: 'Components' },
-    ];
+    const navLinks = NAV_ITEMS.map(({ href, icon, label }) => {
+      const isActive = activeRoute === href;
 
-    const navLinks = navItems.map(({ href, icon, label }) => `
-      <li>
-        <div
-          class="nav-link ${'#' + activeRoute === href ? 'is-active' : ''}"
-          data-href="${href}"
-          data-action="click:navigate"
-          role="link"
-          tabindex="0"
-        >
-          <span class="nav-icon">${icon}</span>
-          <span class="nav-label">${label}</span>
-        </div>
-      </li>
-    `).join('');
+      // Static strings from NAV_ITEMS - escHtml as defense in depth
+      const safeIcon  = escHtml(icon);
+      const safeLabel = escHtml(label);
+      const safeHref  = escAttr(href);
+
+      const linkClass = cls('nav-link', isActive && 'is-active');
+
+      return `
+        <li>
+          <div
+            class="${linkClass}"
+            data-href="${safeHref}"
+            data-action="click:navigate keydown:handleNavKeydown"
+            role="link"
+            tabindex="0"
+            aria-current="${isActive ? 'page' : 'false'}"
+          >
+            <span class="nav-icon" aria-hidden="true">${safeIcon}</span>
+            <span class="nav-label">${safeLabel}</span>
+          </div>
+        </li>
+      `;
+    }).join('');
 
     return `
       <div class="layout">
 
-        <!-- Sidebar -->
-        <aside class="sidebar">
-          <div class="brand">
-            <span class="brand-logo">◈</span>
+        <aside class="sidebar" aria-label="Main navigation">
+          <div class="brand" aria-label="NullDeps">
+            <span class="brand-logo" aria-hidden="true">◈</span>
             <span class="brand-name">NullDeps</span>
           </div>
-          <nav>
-            <ul class="nav-list" data-action="click:navigate">
+
+          <nav aria-label="Site sections">
+            <ul class="nav-list" role="list">
               ${navLinks}
             </ul>
           </nav>
-          <div class="sidebar-footer">
+
+          <div class="sidebar-footer" aria-hidden="true">
             <span>v1.0.0</span>
           </div>
         </aside>
 
-        <!-- Main content area -->
-        <main class="content">
+        <main class="content" id="main-content" tabindex="-1">
           <slot></slot>
         </main>
 
@@ -90,112 +140,134 @@ class UiLayout extends Component {
     `;
   }
 
+  // ---- Styles ----
+
   styles() {
     return `
       :host {
+        ${cssVars()}
         display: block;
         min-height: 100vh;
+        font-family: inherit;
       }
 
+      :host([hidden]) { display: none; }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      /* ---- Layout grid ---- */
       .layout {
         display: grid;
         grid-template-columns: 220px 1fr;
         min-height: 100vh;
-        background: #0d0d0d;
+        background: var(--color-bg-deep);
       }
 
-      /* ── Sidebar ── */
+      /* ---- Sidebar ---- */
       .sidebar {
         display: flex;
         flex-direction: column;
-        background: #111;
-        border-right: 1px solid #1e1e1e;
-        padding: 1.5rem 0;
+        background: var(--color-bg);
+        border-right: 1px solid var(--color-border);
+        padding: var(--spacing-2xl) 0;
         position: sticky;
         top: 0;
         height: 100vh;
+        overflow-y: auto;
       }
 
+      /* ---- Brand ---- */
       .brand {
         display: flex;
         align-items: center;
-        gap: 0.625rem;
-        padding: 0 1.25rem 1.5rem;
-        border-bottom: 1px solid #1e1e1e;
-        margin-bottom: 1rem;
+        gap: var(--spacing-md);
+        padding: 0 var(--spacing-xl) var(--spacing-2xl);
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: var(--spacing-lg);
+        flex-shrink: 0;
       }
 
       .brand-logo {
         font-size: 1.4rem;
-        color: #6ee7b7;
+        color: var(--color-brand);
       }
 
       .brand-name {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #fff;
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
         letter-spacing: 0.03em;
       }
 
-      /* ── Nav ── */
+      /* ---- Nav ---- */
       nav { flex: 1; }
 
       .nav-list {
         list-style: none;
         margin: 0;
-        padding: 0 0.75rem;
+        padding: 0 var(--spacing-md);
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
+        gap: var(--spacing-xs);
       }
 
       .nav-link {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.6rem 0.875rem;
-        border-radius: 8px;
-        color: #888;
+        gap: var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-lg);
+        border-radius: var(--radius-md);
+        color: var(--color-text-muted);
         cursor: pointer;
-        font-size: 0.9rem;
-        transition: background 0.15s, color 0.15s;
+        font-size: var(--font-size-md);
+        transition:
+          background var(--transition-base),
+          color      var(--transition-base);
         user-select: none;
       }
 
       .nav-link:hover {
-        background: #1a1a1a;
-        color: #ddd;
+        background: var(--color-bg-hover);
+        color: var(--color-text-secondary);
+      }
+
+      .nav-link:focus-visible {
+        outline: 2px solid var(--color-brand);
+        outline-offset: 2px;
       }
 
       .nav-link.is-active {
-        background: #1a2e24;
-        color: #6ee7b7;
+        background: var(--color-brand-subtle);
+        color: var(--color-brand);
       }
 
       .nav-icon {
-        font-size: 1rem;
+        font-size: var(--font-size-base);
         width: 1.25rem;
         text-align: center;
         flex-shrink: 0;
       }
 
-      /* ── Content ── */
+      /* ---- Content ---- */
       .content {
-        padding: 2.5rem 3rem;
+        padding: var(--spacing-3xl) var(--spacing-4xl);
         overflow-y: auto;
-        color: #ccc;
+        color: var(--color-text-secondary);
+        /* Focus target for skip-to-main / post-navigate focus management */
+        outline: none;
       }
 
-      /* ── Footer ── */
+      /* ---- Footer ---- */
       .sidebar-footer {
-        padding: 1rem 1.5rem 0;
-        border-top: 1px solid #1e1e1e;
-        font-size: 0.75rem;
-        color: #444;
+        padding: var(--spacing-lg) var(--spacing-2xl) 0;
+        border-top: 1px solid var(--color-border);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-disabled);
         text-align: center;
+        flex-shrink: 0;
       }
 
-      /* ── Responsive ── */
+      /* ---- Mobile ---- */
       @media (max-width: 640px) {
         .layout {
           grid-template-columns: 1fr;
@@ -207,15 +279,17 @@ class UiLayout extends Component {
           align-items: center;
           height: auto;
           position: static;
-          padding: 0.75rem 1rem;
+          padding: var(--spacing-md) var(--spacing-lg);
           border-right: none;
-          border-bottom: 1px solid #1e1e1e;
+          border-bottom: 1px solid var(--color-border);
+          overflow-y: visible;
         }
 
-        .brand { 
-          border-bottom: none; 
+        .brand {
+          border-bottom: none;
           margin-bottom: 0;
           padding-bottom: 0;
+          flex-shrink: 0;
         }
 
         .sidebar-footer { display: none; }
@@ -225,12 +299,18 @@ class UiLayout extends Component {
         .nav-list {
           flex-direction: row;
           justify-content: flex-end;
-          gap: 0.25rem;
+          gap: var(--spacing-xs);
+          padding: 0 var(--spacing-xs);
         }
 
         .nav-label { display: none; }
 
-        .content { padding: 1.5rem 1rem; }
+        .content { padding: var(--spacing-2xl) var(--spacing-lg); }
+      }
+
+      /* Reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        .nav-link { transition: none; }
       }
     `;
   }

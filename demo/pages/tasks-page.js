@@ -1,34 +1,63 @@
 import { Component } from '/src/nulldeps.js';
 import { TaskService } from '../services/tasks.service.js';
+import { createStore, logger } from '/src/core/store.js';
+
+// Create isolated store for this page - not shared globally
+const { store, setState, getSnapshot } = createStore({
+  tasks: [],
+  input: '',
+  loading: true,
+  error: null
+});
 
 class TasksPage extends Component {
 
   async onMount() {
-    // Init with loading state before async data arrives
-    this.initState({
-      tasks: [],
-      input: '',
-      loading: true,
-      error: null
-    });
+    // Subscribe to store changes - re-render on every update
+    this._unsubscribe = this._bindStore();
 
     try {
       const tasks = await TaskService.getAll();
-      this.setState({ tasks, loading: false });
+      setState({ tasks, loading: false });
     } catch (err) {
-      this.setState({ error: err.message, loading: false });
+      setState({ error: err.message, loading: false });
     }
+  }
+
+  onUnmount() {
+    // Cleanup store subscription to prevent memory leak
+    this._unsubscribe?.();
+  }
+
+  /**
+   * Bind store:change event to component re-render
+   * Returns unsubscribe function
+   */
+  _bindStore() {
+    const handler = () => this.render();
+    window.addEventListener('store:change', handler);
+    return () => window.removeEventListener('store:change', handler);
   }
 
   toggle(e) {
     const id = Number(e.currentTarget.dataset.id);
-    const tasks = this.state.tasks.map(t =>
-      t.id === id ? { ...t, done: !t.done } : t
-    );
-    this.setState({ tasks });
-    // Persist toggle to API (fire and forget)
-    TaskService.update(id, { done: !this.state.tasks.find(t => t.id === id)?.done })
-      .catch(err => console.error('[TasksPage] toggle failed', err));
+    const { tasks } = getSnapshot();
+
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    // Optimistic update
+    setState({
+      tasks: tasks.map(t => t.id === id ? { ...t, done: !t.done } : t)
+    });
+
+    // Persist to API - fire and forget with rollback on error
+    TaskService.update(id, { done: !task.done })
+      .catch(err => {
+        console.error('[TasksPage] toggle failed', err);
+        // Rollback to pre-toggle state
+        setState({ tasks, error: err.message });
+      });
   }
 
   async add() {
@@ -36,57 +65,74 @@ class TasksPage extends Component {
     const text = input?.value.trim();
     if (!text) return;
 
-    try {
-      // Optimistic update - add locally first
-      const optimistic = { id: `tmp_${Date.now()}`, text, done: false };
-      this.setState({ tasks: [...this.state.tasks, optimistic] });
+    const { tasks } = getSnapshot();
+    const optimistic = { id: `tmp_${Date.now()}`, text, done: false };
 
+    // Optimistic update
+    setState({ tasks: [...tasks, optimistic], error: null });
+
+    // Clear input immediately for better UX
+    if (input) input.value = '';
+
+    try {
       const created = await TaskService.create({ text, done: false });
 
       // Replace optimistic entry with real server response
-      const tasks = this.state.tasks.map(t =>
-        t.id === optimistic.id ? created : t
-      );
-      this.setState({ tasks });
+      const current = getSnapshot();
+      setState({
+        tasks: current.tasks.map(t => t.id === optimistic.id ? created : t)
+      });
     } catch (err) {
       console.error('[TasksPage] add failed', err);
-      // Rollback optimistic update on error
-      const tasks = this.state.tasks.filter(t => !String(t.id).startsWith('tmp_'));
-      this.setState({ tasks, error: err.message });
+      // Rollback optimistic entry
+      const current = getSnapshot();
+      setState({
+        tasks: current.tasks.filter(t => t.id !== optimistic.id),
+        error: err.message
+      });
     }
   }
 
   async remove(e) {
     const id = Number(e.currentTarget.dataset.id);
+    const { tasks } = getSnapshot();
 
     // Optimistic remove
-    const previous = this.state.tasks;
-    this.setState({ tasks: previous.filter(t => t.id !== id) });
+    setState({ tasks: tasks.filter(t => t.id !== id), error: null });
 
     try {
       await TaskService.remove(id);
     } catch (err) {
       console.error('[TasksPage] remove failed', err);
-      // Rollback on error
-      this.setState({ tasks: previous, error: err.message });
+      // Rollback to previous list
+      setState({ tasks, error: err.message });
     }
   }
 
   edit(e) {
     const id = Number(e.currentTarget.dataset.id);
-    window.dispatchEvent(new CustomEvent('navigate', { detail: { path: `/tasks/${id}` } }));
+    window.dispatchEvent(new CustomEvent('navigate', {
+      detail: { path: `/tasks/${id}` }
+    }));
   }
 
   template() {
-    const { tasks, loading, error } = this.state;
+    // Read from proxy - always current values
+    const { tasks, loading, error } = store;
 
     if (loading) return `<div class="tasks"><p class="status">Loading...</p></div>`;
-    if (error)   return `<div class="tasks"><p class="status error">${error}</p></div>`;
+
+    // Escape error message to prevent XSS in template
+    if (error) return `
+      <div class="tasks">
+        <p class="status error">${this._escapeHtml(error)}</p>
+      </div>
+    `;
 
     const taskItems = tasks.map(t => `
       <li class="task ${t.done ? 'done' : ''}">
         <span data-action="click:toggle" data-id="${t.id}" class="text">
-          ${t.done ? '✅' : '⬜'} ${t.text}
+          ${t.done ? '✅' : '⬜'} ${this._escapeHtml(t.text)}
         </span>
         <div class="task-actions">
           <button data-action="click:edit" data-id="${t.id}" class="edit" title="Edit task">
@@ -109,6 +155,20 @@ class TasksPage extends Component {
         <ul>${taskItems}</ul>
       </div>
     `;
+  }
+
+  /**
+   * Escape HTML special characters to prevent XSS in templates
+   * @param {string} str
+   * @returns {string}
+   */
+  _escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   styles() {

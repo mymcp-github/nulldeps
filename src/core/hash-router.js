@@ -12,6 +12,46 @@
  * - Named routes for programmatic navigation
  * - Dynamic route params: :param and [param] syntax
  */
+
+// Valid custom element names: must contain a hyphen, only lowercase + digits + hyphen
+const VALID_ELEMENT_TAG = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/;
+
+// Valid route paths: alphanumeric, slash, colon, brackets, dash, underscore, dot
+const VALID_PATH = /^[a-zA-Z0-9/:.\-_[\]]*$/;
+
+/**
+ * Validates a custom element tag name
+ * @param {string} tag
+ */
+function assertValidTag(tag) {
+  if (typeof tag !== 'string' || !VALID_ELEMENT_TAG.test(tag)) {
+    throw new TypeError(`[NullDeps Router] Invalid element tag: "${tag}"`);
+  }
+}
+
+/**
+ * Validates a route path to prevent injection
+ * @param {string} path
+ */
+function assertValidPath(path) {
+  if (typeof path !== 'string' || !VALID_PATH.test(path)) {
+    throw new TypeError(`[NullDeps Router] Invalid path: "${path}"`);
+  }
+}
+
+/**
+ * Safe param encoding - prevents prototype pollution
+ * @param {object} params
+ * @returns {object}
+ */
+function sanitizeParams(params) {
+  return Object.fromEntries(
+    Object.entries(params)
+      .filter(([key]) => key !== '__proto__' && key !== 'constructor' && key !== 'prototype')
+      .map(([key, value]) => [key, String(value)])
+  );
+}
+
 export class Router {
   #routes = [];
   #outlet = null;
@@ -22,8 +62,11 @@ export class Router {
   #guards = [];
   #scrollPositions = new Map();
 
-  // Note: base is no longer needed - hash routing is always root-relative
   constructor(outletSelector) {
+    if (typeof outletSelector !== 'string' || !outletSelector.trim()) {
+      throw new TypeError('[NullDeps Router] outletSelector must be a non-empty string');
+    }
+
     this.#outlet = document.querySelector(outletSelector);
 
     if (!this.#outlet) {
@@ -41,20 +84,33 @@ export class Router {
    * @param {object} options - { name, lazy, onEnter, onLeave }
    */
   add(pattern, elementTag, options = {}) {
+    assertValidPath(pattern);
+    assertValidTag(elementTag);
+
+    if (options.name !== undefined && typeof options.name !== 'string') {
+      throw new TypeError('[NullDeps Router] Route name must be a string');
+    }
+
+    if (options.lazy !== undefined && typeof options.lazy !== 'function') {
+      throw new TypeError('[NullDeps Router] lazy must be a function returning a Promise');
+    }
+
     this.#routes.push({
       pattern,
       elementTag,
       regex: this.#toRegex(pattern),
       name: options.name ?? null,
       lazy: options.lazy ?? null,
-      onEnter: options.onEnter ?? null,
-      onLeave: options.onLeave ?? null
+      onEnter: typeof options.onEnter === 'function' ? options.onEnter : null,
+      onLeave: typeof options.onLeave === 'function' ? options.onLeave : null
     });
+
     return this;
   }
 
   /** Custom element tag for unmatched routes */
   notFound(elementTag) {
+    assertValidTag(elementTag);
     this.#notFound = elementTag;
     return this;
   }
@@ -67,15 +123,16 @@ export class Router {
    * - '/other/path' → redirect
    */
   beforeEach(guardFn) {
+    if (typeof guardFn !== 'function') {
+      throw new TypeError('[NullDeps Router] Guard must be a function');
+    }
     this.#guards.push(guardFn);
     return this;
   }
 
   start() {
-    // Hash changes trigger hashchange event - no server needed
     window.addEventListener('hashchange', () => this.#resolve());
 
-    // Resolve immediately on load
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.#resolve());
     } else {
@@ -88,18 +145,12 @@ export class Router {
       if (!a) return;
 
       const href = a.getAttribute('href');
-
-      // Handle both hash links (#/path) and plain paths (/path)
       if (!href) return;
 
-      if (href.startsWith('#/')) {
-        // Already a hash link - let browser handle it naturally
-        // hashchange event will fire automatically
-        return;
-      }
+      // Already a hash link - hashchange fires automatically
+      if (href.startsWith('#/')) return;
 
       if (href.startsWith('/')) {
-        // Convert plain path links to hash navigation
         e.preventDefault();
         this.navigate(href);
       }
@@ -113,17 +164,20 @@ export class Router {
    * @param {string} path - e.g. '/tasks' or '/tasks/123'
    */
   navigate(path) {
-    const hash = '#' + path;
+    assertValidPath(path);
 
-    // No-op if already on this hash
+    const hash = '#' + path;
     if (window.location.hash === hash) return;
 
-    // Setting location.hash triggers hashchange automatically
     window.location.hash = path;
   }
 
   /** Navigate programmatically by route name */
   navigateTo(name, params = {}) {
+    if (typeof name !== 'string') {
+      throw new TypeError('[NullDeps Router] Route name must be a string');
+    }
+
     const route = this.#routes.find(r => r.name === name);
 
     if (!route) {
@@ -131,13 +185,16 @@ export class Router {
       return;
     }
 
+    // Sanitize params before use - prevents prototype pollution
+    const safeParams = sanitizeParams(params);
+
     // Replace both :param and [param] placeholders with actual values
     const path = route.pattern.replace(/(?::|\[)([^\s/\]]+)\]?/g, (_, key) => {
-      if (!(key in params)) {
+      if (!(key in safeParams)) {
         console.warn(`[NullDeps Router] Missing param "${key}" for route "${name}"`);
         return `:${key}`;
       }
-      return encodeURIComponent(params[key]);
+      return encodeURIComponent(safeParams[key]);
     });
 
     this.navigate(path);
@@ -145,14 +202,14 @@ export class Router {
 
   /** Replace current history entry without adding a new one */
   replace(path) {
-    // replaceState on the hash keeps back-button behavior clean
+    assertValidPath(path);
     history.replaceState(null, '', '#' + path);
     this.#resolve();
   }
 
-  /** Returns the currently active route info */
+  /** Returns the currently active route info - frozen to prevent external mutation */
   get current() {
-    return this.#currentRoute ? { ...this.#currentRoute } : null;
+    return this.#currentRoute ? Object.freeze({ ...this.#currentRoute }) : null;
   }
 
   // ---- Private ----
@@ -160,22 +217,32 @@ export class Router {
   async #resolve() {
     const navId = ++this.#currentNavId;
 
-    // Extract path from hash - default to '/' if no hash present
     const hash = window.location.hash;
     const path = hash.startsWith('#/') ? hash.slice(1) : '/';
 
-    // Split path and search string (hash doesn't have native searchParams)
     const [cleanPath, queryString] = path.split('?');
 
     const matched = this.#routes.find(r => r.regex.test(cleanPath));
     const params = matched ? this.#extractParams(matched.pattern, cleanPath) : {};
-
-    // Parse query string manually since URLSearchParams works on strings
     const searchParams = Object.fromEntries(new URLSearchParams(queryString ?? ''));
 
     const to = matched
-      ? { path: cleanPath, pattern: matched.pattern, params, searchParams, elementTag: matched.elementTag, name: matched.name }
-      : { path: cleanPath, pattern: null, params: {}, searchParams, elementTag: this.#notFound, name: null };
+      ? {
+          path: cleanPath,
+          pattern: matched.pattern,
+          params: Object.freeze(params),
+          searchParams: Object.freeze(searchParams),
+          elementTag: matched.elementTag,
+          name: matched.name
+        }
+      : {
+          path: cleanPath,
+          pattern: null,
+          params: Object.freeze({}),
+          searchParams: Object.freeze(searchParams),
+          elementTag: this.#notFound,
+          name: null
+        };
 
     const from = this.#currentRoute;
 
@@ -185,13 +252,18 @@ export class Router {
     if (navId !== this.#currentNavId) return;
 
     if (guardResult === false) {
-      // Restore previous hash without triggering another hashchange
       if (from) history.replaceState(null, '', '#' + from.path);
       return;
     }
 
     if (typeof guardResult === 'string') {
-      this.navigate(guardResult);
+      // Validate redirect target from guard before navigating
+      try {
+        assertValidPath(guardResult);
+        this.navigate(guardResult);
+      } catch {
+        console.error(`[NullDeps Router] Guard returned invalid redirect path: "${guardResult}"`);
+      }
       return;
     }
 
@@ -227,12 +299,21 @@ export class Router {
     if (matched) {
       const el = document.createElement(matched.elementTag);
 
-      // Attach route data BEFORE DOM insertion so connectedCallback can read it
-      el.routeParams = params;
-      el.searchParams = searchParams;
+      // Attach frozen route data BEFORE DOM insertion so connectedCallback can read it
+      Object.defineProperties(el, {
+        routeParams: {
+          value: Object.freeze(params),
+          writable: false,
+          configurable: false
+        },
+        searchParams: {
+          value: Object.freeze(searchParams),
+          writable: false,
+          configurable: false
+        }
+      });
 
-      this.#outlet.innerHTML = '';
-      this.#outlet.appendChild(el);
+      this.#outlet.replaceChildren(el);
       this.#currentElement = el;
 
       matched.onEnter?.(to, from);
@@ -257,16 +338,20 @@ export class Router {
         const result = await guard(from, to);
         if (result !== true && result !== undefined) return result;
       } catch (err) {
-        console.error('[NullDeps Router] Guard threw an error', err);
+        console.error('[NullDeps Router] Guard threw:', err);
         return false;
       }
     }
     return true;
   }
 
+  /**
+   * Safe DOM creation - avoids innerHTML with dynamic tag names
+   */
   #renderNotFound() {
-    this.#outlet.innerHTML = `<${this.#notFound}></${this.#notFound}>`;
-    this.#currentElement = this.#outlet.firstElementChild;
+    const el = document.createElement(this.#notFound);
+    this.#outlet.replaceChildren(el);
+    this.#currentElement = el;
   }
 
   /**

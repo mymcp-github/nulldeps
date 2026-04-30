@@ -161,7 +161,7 @@ customElements.define('my-page', MyPage);</code></pre>
           <div class="feature-card">
             <span class="feature-icon">🔀</span>
             <h3>Routing</h3>
-            <p>History API, clean URLs, no hash.</p>
+            <p>History API.</p>
           </div>
           <div class="feature-card">
             <span class="feature-icon">🎯</span>
@@ -210,7 +210,12 @@ customElements.define('my-page', MyPage);</code></pre>
 
       <div class="closing">
         There is another way.
+        <div>
+        Repo: <a href="https://github.com/mymcp-github/nulldeps">https://github.com/mymcp-github/null</a>
       </div>
+      </div>
+
+      
     `;
   }
 
@@ -232,6 +237,10 @@ customElements.define('my-page', MyPage);</code></pre>
       .hero {
         text-align: center;
         margin-bottom: 4rem;
+      }
+
+      a {
+        color: #FCD703;
       }
 
       .hero-badge {

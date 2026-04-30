@@ -1,138 +1,176 @@
-// demo/components/ui-button.js
+/**
+ * ui-button.js
+ * Form-associated button web component with XSS protection and design tokens.
+ */
+import { Component } from '/src/nulldeps.js';
+import { escAttr, whitelist, cls } from '/src/utility.js';
+import { color, radius, font, transition, spacing, shadow, cssVars } from '/src/theme.js';
 
-class UiButton extends HTMLElement {
+// Whitelists - prevent attribute injection
+const ALLOWED_VARIANTS = new Set(['primary', 'secondary', 'ghost', 'danger', 'icon']);
+const ALLOWED_SIZES    = new Set(['sm', 'md', 'lg']);
+const ALLOWED_TYPES    = new Set(['button', 'submit', 'reset']);
 
-  // Reflect all native button attributes
-  static observedAttributes = [
-    'variant', 'size', 'loading', 'disabled',
-    'type', 'name', 'value', 'form', 'autofocus'
-  ];
+class UiButton extends Component {
+
+  // Form-associated custom element - native form participation
+  static formAssociated = true;
 
   #internals;
 
+  static get watchedAttributes() {
+    return [
+      'variant', 'size', 'loading', 'disabled',
+      'type', 'name', 'value', 'form', 'autofocus'
+    ];
+  }
+
   constructor() {
     super();
-    // Form-associated custom element - native form participation
     this.#internals = this.attachInternals();
-    this.attachShadow({ mode: 'open' });
   }
 
-  // Tell the browser this is a form element
-  static formAssociated = true;
-
-  connectedCallback() {
-    this.render();
-    this.#bindEvents();
-  }
-
-  attributeChangedCallback() {
-    if (this.shadowRoot.innerHTML) this.render();
-  }
-
-  // ── Private ────────────────────────────────────────────────
-
-  #bindEvents() {
-    const btn = this.#btn;
-    if (!btn) return;
-
-    // Forward click to form if type="submit"
-    btn.addEventListener('click', (e) => {
-      if (this.loading) { e.preventDefault(); return; }
-
-      const type = this.getAttribute('type') ?? 'button';
-
-      if (type === 'submit') {
-        this.#internals.form?.requestSubmit();
-      }
-
-      if (type === 'reset') {
-        this.#internals.form?.reset();
-      }
+  onMount() {
+    this.initState({
+      variant:   whitelist(this.getAttribute('variant'), ALLOWED_VARIANTS, 'primary'),
+      size:      whitelist(this.getAttribute('size'),    ALLOWED_SIZES,    'md'),
+      type:      whitelist(this.getAttribute('type'),    ALLOWED_TYPES,    'button'),
+      name:      this.getAttribute('name')  ?? '',
+      value:     this.getAttribute('value') ?? '',
+      loading:   this.hasAttribute('loading'),
+      disabled:  this.hasAttribute('disabled'),
+      autofocus: this.hasAttribute('autofocus'),
     });
   }
 
-  get #btn() {
-    return this.shadowRoot.querySelector('button');
+  onAttributeChange(name, _old, newVal) {
+    switch (name) {
+      case 'variant':
+        this.setState({ variant: whitelist(newVal, ALLOWED_VARIANTS, 'primary') });
+        break;
+      case 'size':
+        this.setState({ size: whitelist(newVal, ALLOWED_SIZES, 'md') });
+        break;
+      case 'type':
+        this.setState({ type: whitelist(newVal, ALLOWED_TYPES, 'button') });
+        break;
+      case 'name':
+      case 'value':
+        this.setState({ [name]: newVal ?? '' });
+        break;
+      case 'loading':
+      case 'disabled':
+      case 'autofocus':
+        this.setState({ [name]: this.hasAttribute(name) });
+        break;
+    }
   }
 
-  // ── Public API ─────────────────────────────────────────────
+  // ---- Actions ----
 
-  /** Programmatic click - same as native */
-  click() { this.#btn?.click(); }
+  handleClick(e) {
+    if (this.state.loading || this.state.disabled) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
 
-  /** Focus - same as native */
+    const { type } = this.state;
+    const form = this.#internals.form;
+
+    if (type === 'submit') form?.requestSubmit();
+    if (type === 'reset')  form?.reset();
+
+    this.emit('ui-button:click', { type });
+  }
+
+  // ---- Public API ----
+
+  click()     { this.#btn?.click(); }
   focus(opts) { this.#btn?.focus(opts); }
+  blur()      { this.#btn?.blur(); }
 
-  /** Blur - same as native */
-  blur() { this.#btn?.blur(); }
-
-  get disabled() { return this.hasAttribute('disabled'); }
+  get disabled()  { return this.hasAttribute('disabled'); }
   set disabled(v) { v ? this.setAttribute('disabled', '') : this.removeAttribute('disabled'); }
 
-  get loading() { return this.hasAttribute('loading'); }
-  set loading(v) { v ? this.setAttribute('loading', '') : this.removeAttribute('loading'); }
+  get loading()   { return this.hasAttribute('loading'); }
+  set loading(v)  { v ? this.setAttribute('loading', '') : this.removeAttribute('loading'); }
 
-  // ── Render ─────────────────────────────────────────────────
-
-  render() {
-    const variant  = this.getAttribute('variant') ?? 'primary';
-    const size     = this.getAttribute('size')    ?? 'md';
-    const loading  = this.hasAttribute('loading');
-    const disabled = this.hasAttribute('disabled');
-    const slot     = '<slot></slot>';
-
-    this.shadowRoot.innerHTML = `
-      <style>${this.#styles(variant, size)}</style>
-      <button
-        class="btn variant-${variant} size-${size} ${loading ? 'loading' : ''}"
-        ${disabled || loading ? 'disabled' : ''}
-        type="${this.getAttribute('type') ?? 'button'}"
-        ${this.getAttribute('name')  ? `name="${this.getAttribute('name')}"` : ''}
-        ${this.getAttribute('value') ? `value="${this.getAttribute('value')}"` : ''}
-        ${this.hasAttribute('autofocus') ? 'autofocus' : ''}
-        aria-busy="${loading}"
-        aria-disabled="${disabled || loading}"
-      >
-        ${loading ? '<span class="spinner" aria-hidden="true"></span>' : ''}
-        <span class="label">${slot}</span>
-      </button>
-    `;
-
-    // Re-bind after innerHTML reset
-    this.#bindEvents();
+  get #btn() {
+    return this.shadowRoot?.querySelector('button');
   }
 
-  // ── Styles ─────────────────────────────────────────────────
+  // ---- Template ----
 
-  #styles(variant, size) {
+  template() {
+    const { variant, size, type, name, value, loading, disabled, autofocus } = this.state;
+
+    const isInactive = loading || disabled;
+
+    const btnClass = cls(
+      'btn',
+      `variant-${variant}`,
+      `size-${size}`,
+      loading && 'loading'
+    );
+
+    return `
+      <button
+        class="${btnClass}"
+        type="${type}"
+        ${name  ? `name="${escAttr(name)}"`   : ''}
+        ${value ? `value="${escAttr(value)}"` : ''}
+        ${isInactive ? 'disabled' : ''}
+        ${autofocus  ? 'autofocus' : ''}
+        aria-busy="${loading}"
+        aria-disabled="${isInactive}"
+        data-action="click:handleClick"
+      >
+        ${loading ? '<span class="spinner" aria-hidden="true"></span>' : ''}
+        <span class="label"><slot></slot></span>
+      </button>
+    `;
+  }
+
+  // ---- Styles ----
+
+  styles() {
     return `
       :host {
+        ${cssVars()}
         display: inline-block;
-        /* Inherit from parent so it fits anywhere */
         font-family: inherit;
       }
 
       :host([hidden]) { display: none; }
+
+      *, *::before, *::after { box-sizing: border-box; }
 
       /* ── Base ── */
       .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
+        gap: var(--spacing-sm);
         border: none;
-        border-radius: 8px;
+        border-radius: var(--radius-md);
         font-family: inherit;
-        font-weight: 600;
+        font-weight: var(--font-weight-semibold);
         cursor: pointer;
-        transition: background 0.15s, opacity 0.15s, transform 0.1s;
+        transition:
+          background     var(--transition-base),
+          opacity        var(--transition-base),
+          transform      var(--transition-fast),
+          border-color   var(--transition-base),
+          color          var(--transition-base);
         white-space: nowrap;
         position: relative;
         outline-offset: 3px;
       }
 
       .btn:focus-visible {
-        outline: 2px solid #6ee7b7;
+        outline: 2px solid var(--color-brand);
+        box-shadow: ${shadow.focus('var(--color-brand-focus)')};
       }
 
       .btn:active:not(:disabled) {
@@ -146,48 +184,60 @@ class UiButton extends HTMLElement {
       }
 
       /* ── Sizes ── */
-      .size-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem;  }
-      .size-md { padding: 0.6rem  1.2rem;  font-size: 0.95rem; }
-      .size-lg { padding: 0.8rem  1.6rem;  font-size: 1.05rem; }
+      .size-sm { padding: 0.35rem 0.75rem; font-size: var(--font-size-sm);   }
+      .size-md { padding: var(--spacing-md) var(--spacing-xl); font-size: var(--font-size-base); }
+      .size-lg { padding: 0.8rem  1.6rem;  font-size: var(--font-size-lg);   }
 
       /* ── Variants ── */
       .variant-primary {
-        background: #6ee7b7;
+        background: var(--color-brand);
         color: #000;
       }
-      .variant-primary:hover:not(:disabled) { background: #34d399; }
+      .variant-primary:hover:not(:disabled) {
+        background: var(--color-success);
+      }
 
       .variant-secondary {
-        background: #1a1a1a;
-        color: #6ee7b7;
-        border: 1px solid #6ee7b7;
+        background: var(--color-bg-hover);
+        color: var(--color-brand);
+        border: 1px solid var(--color-brand);
       }
-      .variant-secondary:hover:not(:disabled) { background: #064e3b; }
+      .variant-secondary:hover:not(:disabled) {
+        background: var(--color-brand-bg);
+      }
 
       .variant-ghost {
         background: transparent;
-        color: #6ee7b7;
+        color: var(--color-brand);
         border: 1px solid transparent;
       }
-      .variant-ghost:hover:not(:disabled) { border-color: #6ee7b7; }
+      .variant-ghost:hover:not(:disabled) {
+        border-color: var(--color-brand);
+        background: var(--color-brand-focus);
+      }
 
       .variant-danger {
         background: #7f1d1d;
         color: #fca5a5;
-        border: 1px solid #ef4444;
+        border: 1px solid var(--color-error);
       }
-      .variant-danger:hover:not(:disabled) { background: #991b1b; }
+      .variant-danger:hover:not(:disabled) {
+        background: #991b1b;
+      }
 
       .variant-icon {
         background: transparent;
-        color: #888;
-        border: 1px solid #2a2a2a;
-        padding: 0.5rem;
-        border-radius: 6px;
+        color: var(--color-text-muted);
+        border: 1px solid var(--color-border);
+        padding: var(--spacing-md);
+        border-radius: var(--radius-sm);
       }
-      .variant-icon:hover:not(:disabled) { color: #fff; border-color: #555; }
+      .variant-icon:hover:not(:disabled) {
+        color: var(--color-text-primary);
+        border-color: var(--color-border-hover);
+      }
 
-      /* ── Loading spinner ── */
+      /* ── Loading ── */
       .loading .label { opacity: 0.4; }
 
       .spinner {
@@ -195,13 +245,20 @@ class UiButton extends HTMLElement {
         height: 0.9em;
         border: 2px solid currentColor;
         border-top-color: transparent;
-        border-radius: 50%;
+        border-radius: var(--radius-full);
         animation: spin 0.6s linear infinite;
         flex-shrink: 0;
       }
 
       @keyframes spin {
         to { transform: rotate(360deg); }
+      }
+
+      /* Reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        .btn { transition: none; }
+        .btn:active:not(:disabled) { transform: none; }
+        .spinner { animation-duration: 1.5s; }
       }
     `;
   }
