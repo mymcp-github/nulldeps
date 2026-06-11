@@ -366,7 +366,7 @@ delete() { /* ... */ }`)}</pre></div>
           ['onMount()',                 'Override','Called once on connect',                         '—'],
           ['onDestroy()',               'Override','Called on disconnect',                           '—'],
           ['routeParams',               'Property','Injected by router: { id, … }',                 'undefined'],
-          ['store-key="x"',            'Attribute','Re-renders on store:x window event',            '—'],
+          ['store-key="x"',            'Attribute','Re-renders on key x of this.store (createStore)',  '—'],
           ['data-action="click:save"', 'Attribute','Auto-binds event to method',                    '—'],
         ])}
 

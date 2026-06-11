@@ -44,11 +44,45 @@
       console.log('saved!');
     }
 
-## Global State
+## State
 
-    import { Store } from '/src/nulldeps.js';
+    import { createStore } from '/src/nulldeps.js';
 
-    Store.user = { name: 'Max' };  // All subscribers re-render automatically
+    // Each store is an isolated instance - there is no global singleton
+    const { store, setState, subscribe, onChange } = createStore({
+      user: null,
+      theme: 'dark'
+    });
+
+    // Read / write through the proxy
+    store.theme = 'light';
+    setState({ user: { name: 'Max' }, theme: 'light' }); // atomic multi-key
+
+    // React to specific keys (detail = { key, value })
+    const stop = subscribe(['user', 'theme'], (e) => {
+      console.log(e.detail.key, e.detail.value);
+    });
+
+    // ...or to any change (detail = { keys })
+    onChange((e) => console.log('changed:', e.detail.keys));
+
+    stop(); // unsubscribe
+
+Notifications are dispatched on each store's own bus - never the global
+`window` - so multiple stores on one page never cross-talk.
+
+### Auto re-render in a component
+
+    const ui = createStore({ count: 0 });
+
+    class CountBadge extends Component {
+      store = ui;   // bind this component to the store
+      template() { return `<b>${ui.store.count}</b>`; }
+    }
+    customElements.define('count-badge', CountBadge);
+
+    <!-- store-key declares which keys trigger a re-render -->
+    <count-badge store-key="count"></count-badge>
 
 ## Routing
 
@@ -66,8 +100,13 @@
 
     http.baseUrl = 'https://api.example.com';
 
+    // Keep the token in memory - never in localStorage, where any injected
+    // script can read it. For real auth prefer an httpOnly cookie set by the
+    // server (then you don't set this header at all - use credentials:'include').
+    let authToken = null;
+
     http.addRequestInterceptor(config => {
-      config.headers['Authorization'] = `Bearer ${Store.token}`;
+      if (authToken) config.headers['Authorization'] = `Bearer ${authToken}`;
       return config;
     });
 

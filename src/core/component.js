@@ -50,6 +50,7 @@ function _deepEqual(a, b) {
 export class Component extends HTMLElement {
   #state = {};
   #listeners = [];
+  #storeUnsubscribers = [];
   #initialized = false;
   #renderScheduled = false;
 
@@ -263,11 +264,21 @@ export class Component extends HTMLElement {
   }
 
   // ---- Store Subscription ----
-  // Supports multiple keys: store-key="user theme"
+  // Opt-in: assign `this.store` to a createStore() instance (e.g. a shared
+  // module singleton) and declare `store-key="user theme"`. The component
+  // then re-renders when those keys change on THAT store instance.
+  // Bound to the store's own bus - never the global window - so multiple
+  // components/stores on one page never cross-talk.
 
   #subscribeToStore() {
     const keyAttr = this.getAttribute('store-key');
     if (!keyAttr) return;
+
+    const storeApi = this.store;
+    if (!storeApi || typeof storeApi.subscribe !== 'function') {
+      console.warn(`[Component] store-key="${keyAttr}" on <${this.tagName.toLowerCase()}> requires this.store to be a createStore() instance - ignored`);
+      return;
+    }
 
     const keys = keyAttr.trim().split(/\s+/);
 
@@ -287,8 +298,9 @@ export class Component extends HTMLElement {
         }
       };
 
-      window.addEventListener(`store:${key}`, handler);
-      this.#listeners.push({ target: window, event: `store:${key}`, handler });
+      // Tracked separately from #listeners - these survive between renders
+      // and are torn down only on disconnect
+      this.#storeUnsubscribers.push(storeApi.subscribe(key, handler));
     }
   }
 
@@ -296,7 +308,8 @@ export class Component extends HTMLElement {
 
   /**
    * Removes only shadow DOM action listeners between renders
-   * Keeps global/store/window listeners alive until disconnect
+   * Keeps global window listeners alive until disconnect
+   * (store subscriptions are tracked separately in #storeUnsubscribers)
    */
   #cleanupActionListeners() {
     this.#listeners = this.#listeners.filter(({ target, event, handler }) => {
@@ -317,5 +330,8 @@ export class Component extends HTMLElement {
       target.removeEventListener(event, handler);
     });
     this.#listeners = [];
+
+    this.#storeUnsubscribers.forEach(unsubscribe => unsubscribe());
+    this.#storeUnsubscribers = [];
   }
 }
