@@ -5,7 +5,8 @@
  * Features:
  * - Batched updates via queueMicrotask
  * - Deep change detection
- * - Namespaced events (store:<key>)
+ * - Per-instance EventTarget bus - notifications isolated to each store
+ *   (subscribe / onChange), so multiple stores on one page never cross-talk
  * - Middleware support (logger, persist, etc.)
  * - Computed values with dependency tracking
  * - Undo/Redo history
@@ -97,6 +98,12 @@ export function createStore(initialState = {}) {
   const _history = [];
   const _future = [];
 
+  // Per-instance event bus. Notifications are dispatched here instead of the
+  // global `window`, so two stores on the same page (e.g. embedded widgets)
+  // never receive each other's `store:*` events. Subscribe via subscribe() /
+  // onChange() or directly on the exposed `bus`.
+  const _bus = new EventTarget();
+
   let _scheduled = false;
 
   // ---- Private Helpers ----
@@ -151,12 +158,12 @@ export function createStore(initialState = {}) {
       _pending.clear();
 
       for (const k of flushedKeys) {
-        window.dispatchEvent(new CustomEvent(`store:${k}`, {
+        _bus.dispatchEvent(new CustomEvent(`store:${k}`, {
           detail: Object.freeze({ key: k, value: _state[k] })
         }));
       }
 
-      window.dispatchEvent(new CustomEvent('store:change', {
+      _bus.dispatchEvent(new CustomEvent('store:change', {
         detail: Object.freeze({ keys: [...flushedKeys] })
       }));
     });
@@ -390,6 +397,45 @@ export function createStore(initialState = {}) {
     _future.length = 0;
   }
 
+  /**
+   * Subscribe to changes of one or more keys on THIS store instance.
+   * Handler receives the CustomEvent (detail = { key, value }).
+   * @param {string|string[]} keys
+   * @param {(e: CustomEvent) => void} handler
+   * @returns {() => void} unsubscribe
+   */
+  function subscribe(keys, handler) {
+    if (typeof handler !== 'function') {
+      throw new TypeError('[NullDeps Store] subscribe handler must be a function');
+    }
+
+    const list = Array.isArray(keys) ? keys : [keys];
+    const events = list.map(key => {
+      assertValidKey(key);
+      return `store:${key}`;
+    });
+
+    for (const event of events) _bus.addEventListener(event, handler);
+
+    return () => {
+      for (const event of events) _bus.removeEventListener(event, handler);
+    };
+  }
+
+  /**
+   * Subscribe to any change on THIS store instance.
+   * Handler receives the CustomEvent (detail = { keys }).
+   * @param {(e: CustomEvent) => void} handler
+   * @returns {() => void} unsubscribe
+   */
+  function onChange(handler) {
+    if (typeof handler !== 'function') {
+      throw new TypeError('[NullDeps Store] onChange handler must be a function');
+    }
+    _bus.addEventListener('store:change', handler);
+    return () => _bus.removeEventListener('store:change', handler);
+  }
+
   return {
     store,
     use,
@@ -400,6 +446,10 @@ export function createStore(initialState = {}) {
     reset,
     undo,
     redo,
+    // Per-instance notifications - isolated from other stores
+    bus: _bus,
+    subscribe,
+    onChange,
   };
 }
 

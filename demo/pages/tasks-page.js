@@ -3,7 +3,7 @@ import { TaskService } from '../services/tasks.service.js';
 import { createStore, logger } from '/src/core/store.js';
 
 // Create isolated store for this page - not shared globally
-const { store, setState, getSnapshot } = createStore({
+const { store, setState, getSnapshot, onChange } = createStore({
   tasks: [],
   input: '',
   loading: true,
@@ -30,13 +30,12 @@ class TasksPage extends Component {
   }
 
   /**
-   * Bind store:change event to component re-render
+   * Bind this store's change event to component re-render
+   * Subscribes to the store's own bus - not the global window
    * Returns unsubscribe function
    */
   _bindStore() {
-    const handler = () => this.render();
-    window.addEventListener('store:change', handler);
-    return () => window.removeEventListener('store:change', handler);
+    return onChange(() => this.render());
   }
 
   toggle(e) {
